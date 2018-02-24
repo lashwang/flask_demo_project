@@ -1,0 +1,6 @@
+pandas
+pyhive
+fire
+thrift
+sasl
+thrift_sasl
