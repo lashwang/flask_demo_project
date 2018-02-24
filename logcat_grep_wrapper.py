@@ -3,7 +3,7 @@
 import fire
 from pyhive import hive
 import pandas as pd
-
+import arrow
 
 conn = hive.Connection(host="ap04.usa.7sys.net",
                        port=10000, username=None,
@@ -11,16 +11,28 @@ conn = hive.Connection(host="ap04.usa.7sys.net",
 
 
 
-def main():
-    sql_for_upc = '''
-    select * from cr_upc 
-where user_id = "deacf0c8-9365-4458-8007-2e72b1a4d32e"
-AND date_entry >= 1517443200000
-AND date_entry <= 1520640000000
-'''
+def query_user_first_upgrage_time(version):
+    utc_now = arrow.utcnow()
+    data_entry_start = utc_now.shift(days=-30).timestamp / (24 * 3600) * (24 * 3600) * 1000
+    date_entry_end = utc_now.shift(days=+1).timestamp / (24 * 3600) * (24 * 3600) * 1000
 
+    sql_for_upc = '''
+    select user_id,MIN(ts)
+    from cr_upc 
+    where version = '{}'
+    AND date_entry >= {}
+    AND date_entry <= {}
+    group by user_id
+    '''.format(version, data_entry_start, date_entry_end)
+
+    print sql_for_upc
     df = pd.read_sql(sql_for_upc, conn)
-    print df
+
+    return df
+
+
+def main():
+    df = query_user_first_upgrage_time(version = "8.0.0.506909")
     pass
 
 

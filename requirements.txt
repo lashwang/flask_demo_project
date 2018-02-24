@@ -4,3 +4,4 @@ fire
 thrift
 sasl
 thrift_sasl
+arrow
