@@ -53,7 +53,7 @@ def read_log_file_list():
         if os.path.exists(dir):
             cmd_result = commands.getstatusoutput("ls {}/aggregated*".format(dir))
             if cmd_result[0] == 0:
-                file_list = cmd_result[0].split("\n")
+                file_list = cmd_result[1].split("\n")
 
     return file_list
 
