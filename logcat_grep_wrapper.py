@@ -48,11 +48,14 @@ def query_user_first_upgrage_time(version):
 
 
 def read_log_file_list():
+    file_list = []
     for dir in LOG_DIR_LIST:
         if os.path.exists(dir):
             cmd_result = commands.getstatusoutput("ls {}/aggregated*".format(dir))
-            print cmd_result[0]
+            if cmd_result[0] == 0:
+                file_list = cmd_result[0].split("\n")
 
+    return file_list
 
 class MainWrapper(object):
     def run(self):
@@ -61,7 +64,8 @@ class MainWrapper(object):
 
 
     def test_module(self):
-        read_log_file_list()
+        file_list = read_log_file_list()
+        print file_list
         pass
 
     pass
