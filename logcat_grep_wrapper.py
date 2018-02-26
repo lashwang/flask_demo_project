@@ -38,8 +38,11 @@ def query_user_first_upgrage_time(version=VERSION_CODE):
                 return df
         except Exception,e:
             print e
+    try:
+        os.remove(DF_UPC_CACHE_FILE_NAME)
+    except Exception, e:
+        print e
 
-    os.remove(DF_UPC_CACHE_FILE_NAME)
     data_entry_start,date_entry_end = cal_time_period()
     sql_for_upc = '''
     select user_id,MIN(ts)
