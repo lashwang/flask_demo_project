@@ -77,9 +77,10 @@ def read_log_file_list_with_upc_time():
     file_list = read_log_file_list()
     for file in file_list:
         mtime = os.path.getmtime(file)
-        print mtime
+        #print mtime
         if mtime <= min_time:
             continue
+        print mtime
         file_list_filter.append(file)
 
 
