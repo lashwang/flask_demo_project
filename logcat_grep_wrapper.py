@@ -72,10 +72,12 @@ def read_log_file_list():
 def read_log_file_list_with_upc_time():
     file_list_filter = []
     df = query_user_first_upgrage_time()
-    min_time = min(df.iloc[:, 1])
+    min_time = df.iloc[:,1].min()/1000
+    print min_time
     file_list = read_log_file_list()
     for file in file_list:
         mtime = os.path.getmtime(file)
+        print mtime
         if mtime <= min_time:
             continue
         file_list_filter.append(file)
