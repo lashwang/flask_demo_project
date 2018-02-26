@@ -57,6 +57,9 @@ def read_log_file_list():
 
     return file_list
 
+
+
+
 class MainWrapper(object):
     def run(self):
         df = query_user_first_upgrage_time(version="8.0.0.506909")
@@ -68,7 +71,10 @@ class MainWrapper(object):
         print file_list
         pass
 
-
+    def test_upc_log_query(self):
+        df = query_user_first_upgrage_time(version="8.0.0.506909")
+        print df
+        pass
 
     pass
 
