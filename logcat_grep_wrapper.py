@@ -7,14 +7,13 @@ import arrow
 import commands
 import os
 
-
 SEC_IN_ONE_HOUR = (24 * 3600)
-
 DEFAULT_QUERY_UPC_DAYS = 30
-
-
+VERSION_CODE = "8.0.0.506909"
 LOG_DIR_LIST = ["/usr/local/seven/usa-ap01/logs/flume/",
             "/usr/local/seven/usa-ap02/logs/flume/"]
+
+DF_UPC_CACHE_FILE_NAME = "df_upc.cache"
 
 
 conn = hive.Connection(host="ap04.usa.7sys.net",
@@ -29,9 +28,19 @@ def cal_time_period(query_days=DEFAULT_QUERY_UPC_DAYS):
     return data_entry_start,date_entry_end
 
 
-def query_user_first_upgrage_time(version):
-    data_entry_start,date_entry_end = cal_time_period()
+def query_user_first_upgrage_time(version=VERSION_CODE):
+    if os.path.exists(DF_UPC_CACHE_FILE_NAME):
+        try:
+            mtime = os.path.getmtime(DF_UPC_CACHE_FILE_NAME)
+            now = arrow.now().timestamp
+            if (now-mtime) <= 24*3600:
+                df = pd.read_pickle(DF_UPC_CACHE_FILE_NAME)
+                return df
+        except Exception,e:
+            print e
 
+    os.remove(DF_UPC_CACHE_FILE_NAME)
+    data_entry_start,date_entry_end = cal_time_period()
     sql_for_upc = '''
     select user_id,MIN(ts)
     from cr_upc 
@@ -43,7 +52,7 @@ def query_user_first_upgrage_time(version):
 
     print sql_for_upc
     df = pd.read_sql(sql_for_upc, conn)
-
+    df.to_pickle(DF_UPC_CACHE_FILE_NAME)
     return df
 
 
@@ -57,12 +66,24 @@ def read_log_file_list():
 
     return file_list
 
+def read_log_file_list_with_upc_time():
+    file_list_filter = []
+    df = query_user_first_upgrage_time()
+    min_time = min(df.iloc[:, 1])
+    file_list = read_log_file_list()
+    for file in file_list:
+        mtime = os.path.getmtime(file)
+        if mtime <= min_time:
+            continue
+        file_list_filter.append(file)
 
+
+    return file_list_filter
 
 
 class MainWrapper(object):
     def run(self):
-        df = query_user_first_upgrage_time(version="8.0.0.506909")
+        df = query_user_first_upgrage_time()
         pass
 
 
@@ -71,8 +92,12 @@ class MainWrapper(object):
         print file_list
         pass
 
+    def test_log_file_filter(self):
+        file_list = read_log_file_list_with_upc_time()
+        print file_list
+
     def test_upc_log_query(self):
-        df = query_user_first_upgrage_time(version="8.0.0.506909")
+        df = query_user_first_upgrage_time()
         print df
         pass
 
