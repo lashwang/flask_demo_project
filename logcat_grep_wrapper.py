@@ -51,7 +51,7 @@ def read_log_file_list():
     for dir in LOG_DIR_LIST:
         if os.path.exists(dir):
             cmd_result = commands.getstatusoutput("ls {}/aggregated*".format(dir))
-            print cmd_result
+            print cmd_result[0]
 
 
 class MainWrapper(object):
