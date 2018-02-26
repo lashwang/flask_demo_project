@@ -63,10 +63,12 @@ class MainWrapper(object):
         pass
 
 
-    def test_module(self):
+    def test_read_log_file_list(self):
         file_list = read_log_file_list()
         print file_list
         pass
+
+
 
     pass
 
