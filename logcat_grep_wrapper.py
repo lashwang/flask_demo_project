@@ -50,7 +50,7 @@ def query_user_first_upgrage_time(version):
 def read_log_file_list():
     for dir in LOG_DIR_LIST:
         if os.path.exists(dir):
-            cmd_result = commands.getstatusoutput("ls {}/aggregated*")
+            cmd_result = commands.getstatusoutput("ls {}/aggregated*".format(dir))
             print cmd_result
 
 
