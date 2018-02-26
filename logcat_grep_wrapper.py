@@ -4,11 +4,17 @@ import fire
 from pyhive import hive
 import pandas as pd
 import arrow
+import commands
+import os
 
 
 SEC_IN_ONE_HOUR = (24 * 3600)
 
 DEFAULT_QUERY_UPC_DAYS = 30
+
+
+LOG_DIR_LIST = ["/usr/local/seven/usa-ap01/logs/flume/",
+            "/usr/local/seven/usa-ap02/logs/flume/"]
 
 
 conn = hive.Connection(host="ap04.usa.7sys.net",
@@ -41,11 +47,22 @@ def query_user_first_upgrage_time(version):
     return df
 
 
+def read_log_file_list():
+    for dir in LOG_DIR_LIST:
+        if os.path.exists(dir):
+            cmd_result = commands.getstatusoutput("ls {}/aggregated*")
+            print cmd_result
+
+
 class MainWrapper(object):
     def run(self):
         df = query_user_first_upgrage_time(version="8.0.0.506909")
         pass
 
+
+    def test_module(self):
+        read_log_file_list()
+        pass
 
     pass
 
