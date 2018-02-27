@@ -6,15 +6,45 @@ import pandas as pd
 import arrow
 import commands
 import os
+from io import BytesIO
+import zlib
+
 
 SEC_IN_ONE_HOUR = (24 * 3600)
 DEFAULT_QUERY_UPC_DAYS = 30
-VERSION_CODE = "8.0.0.506909"
+DEFAULT_VERSION_CODE = "8.0.0.506909"
 LOG_DIR_LIST = ["/usr/local/seven/usa-ap01/logs/flume/",
             "/usr/local/seven/usa-ap02/logs/flume/"]
 
 DF_UPC_CACHE_FILE_NAME = "df_upc.cache"
+LOGS_TYPE_CRCS = 3
+LOGS_TYPE_CRCS_EXTRA = 5
+LOGS_TYPE_GUDS = 91
+LOGS_TYPE_TERRA_UPC = 92
+LOGS_TYPE_OTHERS = 99
+LOGS_TYPE_INFO_ONLY = 100 # Only get aggregated file index
 
+LOGS_TYPES = {0:{'name':'logcat',
+                 'suffix':'.log'},
+              1:{'name':'tcpdump',
+                 'suffix':'.pcap'},
+              2:{'name':'iptables',
+                 'suffix':'.log'},
+              3:{'name':'crcs',
+                 'suffix':'.avro'},
+              4:{'name':'qoe',
+                 'suffix':'.log'},
+              5:{'name':'crcs',
+                 'suffix':'.avro'},
+              LOGS_TYPE_GUDS:{'name':'guds',
+                  'suffix':'.log'},
+              LOGS_TYPE_TERRA_UPC:{'name':'crcs',
+                 'suffix':'.avro'},
+              LOGS_TYPE_OTHERS:{'name':'others',
+                  'suffix':'.log'},
+              LOGS_TYPE_INFO_ONLY:{'name':'info',
+                  'suffix':'.info'}
+            }
 
 conn = hive.Connection(host="ap04.usa.7sys.net",
                        port=10000, username=None,
@@ -28,7 +58,7 @@ def cal_time_period(query_days=DEFAULT_QUERY_UPC_DAYS):
     return data_entry_start,date_entry_end
 
 
-def query_user_first_upgrage_time(version=VERSION_CODE):
+def query_user_first_upgrage_time(version=DEFAULT_VERSION_CODE):
     if os.path.exists(DF_UPC_CACHE_FILE_NAME):
         try:
             mtime = os.path.getmtime(DF_UPC_CACHE_FILE_NAME)
@@ -76,15 +106,146 @@ def read_log_file_list_with_upc_time():
     print min_time
     file_list = read_log_file_list()
     for file in file_list:
+        # Get the last modify time.
         mtime = os.path.getmtime(file)
-        #print mtime
         if mtime <= min_time:
             continue
-        print mtime
         file_list_filter.append(file)
 
 
     return file_list_filter
+
+def toInt(bytesArr, pos, length):
+    if len(bytesArr) < (pos + length):
+        # sys.exit(-1)
+        raise ValueError
+
+    ret = 0
+    offset = 0
+    while True:
+        if offset == 4 or offset == length: break
+        ret = ret << 8 | ord(bytesArr[pos + offset])
+        offset = offset + 1
+
+    return ret
+
+def toClientAddr(bytesArr, pos):
+    nocIdInstanceId = toInt(bytesArr, pos, 4)
+    nocId = nocIdInstanceId >> 8
+    instanceId = nocIdInstanceId & 0x00ff
+    hostId = toInt(bytesArr, pos + 4, 4)
+
+    nocStr = str(hex(nocId)).replace('0x', "")
+    hostStr = str(hex(hostId)).replace('0x', "")
+    instanceStr = str(hex(instanceId)).replace('0x', "")
+    return nocStr + "-" + hostStr + "-" + instanceStr
+
+def toClientAddrHash(bytesArr):
+    pckuserId = bytesArr.decode("utf-8")
+    i = pckuserId.find(b"\x00")
+    if i <= 0:
+        return pckuserId
+    else:
+        return pckuserId[0:i]
+
+
+def normalize_userid(user_id):
+    if "||" in user_id:
+        user_id = user_id.split("||")[0]
+
+    return user_id
+
+
+def read_block_head(blockhead):
+    next_pos = 0
+    pck_log_type = toInt(blockhead, next_pos, 1)
+    next_pos += 1
+    pck_log_level = toInt(blockhead, next_pos, 2)
+    next_pos += 2
+    pck_start_time = toInt(blockhead, next_pos, 4)
+    next_pos += 4
+    pck_end_time = toInt(blockhead, next_pos, 4)
+    next_pos += 4
+    pckPayloadSize = toInt(blockhead, next_pos, 4)
+    next_pos += 4
+
+    return pck_log_type,pck_log_level,pck_start_time,pck_end_time,pckPayloadSize
+
+def read_aggregated_file(aggregated_log_file):
+    binaryFile = open(aggregated_log_file, 'rb')
+
+    try:
+        total_size = os.path.getsize(aggregated_log_file)
+        next_position = 0
+        block_index = 0
+        while True:
+            blockhead = binaryFile.read(5)  # read block head
+            if not blockhead:
+                print 'not header'
+                break
+            pck_size = toInt(blockhead, 0, 4)
+            ver = toInt(blockhead, 4, 1)
+            if ver > 2:
+                break
+            if ver == 1:
+                addrs_data = binaryFile.read(8)
+                pckuserId = toClientAddr(addrs_data, 0)
+            elif ver == 2:
+                user_id_bytes = binaryFile.read(128)
+                pckuserId = toClientAddrHash(user_id_bytes)
+
+            blockhead = binaryFile.read(15)
+            pck_log_type, \
+            pck_log_level, \
+            pck_start_time, \
+            pck_end_time, \
+            pckPayloadSize = read_block_head(blockhead)
+            next_position += pck_size
+            if not (pckPayloadSize > 0):
+                print ("the log with invliad ver found!  version:%d ===> exit" % (ver))
+                break
+            if next_position > total_size:
+                print (
+                        "Block [%d] payload_data is not complete, next_position %d > total_size %d. aggregated_log_file is %s" \
+                        % (block_index, next_position, total_size, aggregated_log_file))
+                break
+            block_index += 1
+            log_tpype_info = LOGS_TYPES.get(pck_log_type)
+            if pck_log_type != 0:
+                # print ("pck_log_type %d is NOT supported" % pck_log_type)
+                binaryFile.seek(pckPayloadSize, 1)
+                continue
+
+            pckuserId = normalize_userid(pckuserId)
+            print "read user {} block".format(pckuserId)
+            read_block(binaryFile, pckPayloadSize)
+        # end while
+
+    finally:
+        binaryFile.close()
+    # end try:
+
+
+def read_block(binaryFile, pckPayloadSize):
+    bytesNeedsToWrite = pckPayloadSize
+    payload = BytesIO()
+    try:
+        while bytesNeedsToWrite > 0:
+            curLen = 5120
+            if bytesNeedsToWrite < 5120: curLen = bytesNeedsToWrite
+            blockBody = binaryFile.read(curLen)  # 5M  per writing
+            payload.write(blockBody)
+            bytesNeedsToWrite = bytesNeedsToWrite - curLen
+        # end while
+
+        try:
+            payload_data = zlib.decompress(payload.getvalue(), zlib.MAX_WBITS | 16)
+            print "get logcat content size: {}".format(len(payload_data))
+        except Exception, error:
+            print error
+
+    finally:
+        payload.close()
 
 
 class MainWrapper(object):
@@ -106,6 +267,9 @@ class MainWrapper(object):
         df = query_user_first_upgrage_time()
         print df
         pass
+
+    def test_agg_file_parser(self):
+        read_aggregated_file('test_data/aggregated0')
 
     pass
 
