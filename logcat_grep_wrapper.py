@@ -220,7 +220,7 @@ def read_aggregated_file(aggregated_log_file,on_user_filter=None,on_logcat_filte
                 continue
 
             pckuserId = normalize_userid(pckuserId)
-            print "read user {} block".format(pckuserId)
+            #print "read user {} block".format(pckuserId)
             if not on_user_filter or on_user_filter(pckuserId,pck_start_time,pck_end_time):
                 read_block(binaryFile, pckPayloadSize,pckuserId,on_logcat_filter)
             else:
