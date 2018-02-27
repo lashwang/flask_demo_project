@@ -261,7 +261,10 @@ def global_on_user_filter(pckuserId,pck_start_time,pck_end_time):
     if df_user.empty:
         return False
 
-    print df_user
+    start_time = df_user[0]._c1
+
+    print start_time
+
 
     return True
     pass
