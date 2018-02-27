@@ -171,7 +171,7 @@ def read_block_head(blockhead):
 
     return pck_log_type,pck_log_level,pck_start_time,pck_end_time,pckPayloadSize
 
-def read_aggregated_file(aggregated_log_file):
+def read_aggregated_file(aggregated_log_file,on_user_filter=None,on_logcat_filter=None):
     binaryFile = open(aggregated_log_file, 'rb')
 
     try:
@@ -218,7 +218,8 @@ def read_aggregated_file(aggregated_log_file):
 
             pckuserId = normalize_userid(pckuserId)
             print "read user {} block".format(pckuserId)
-            read_block(binaryFile, pckPayloadSize)
+            if not on_user_filter or on_user_filter(pckuserId,pck_start_time,pck_end_time):
+                read_block(binaryFile, pckPayloadSize,pckuserId,on_logcat_filter)
         # end while
 
     finally:
@@ -226,7 +227,7 @@ def read_aggregated_file(aggregated_log_file):
     # end try:
 
 
-def read_block(binaryFile, pckPayloadSize):
+def read_block(binaryFile, pckPayloadSize,pckuserId,on_logcat_filter=None):
     bytesNeedsToWrite = pckPayloadSize
     payload = BytesIO()
     try:
@@ -241,6 +242,8 @@ def read_block(binaryFile, pckPayloadSize):
         try:
             payload_data = zlib.decompress(payload.getvalue(), zlib.MAX_WBITS | 16)
             print "get logcat content size: {}".format(len(payload_data))
+            if on_logcat_filter:
+                on_logcat_filter(pckuserId,payload_data)
         except Exception, error:
             print error
 
@@ -269,7 +272,16 @@ class MainWrapper(object):
         pass
 
     def test_agg_file_parser(self):
-        read_aggregated_file('test_data/aggregated0')
+        def on_user_filter(pckuserId,pck_start_time,pck_end_time):
+            print "on_user_filter"
+            return True
+            pass
+
+        def on_logcat_filter(pckuserId,payload_data):
+            print "on_logcat_filter"
+            pass
+
+        read_aggregated_file('test_data/aggregated0',on_user_filter,on_logcat_filter)
 
     pass
 
