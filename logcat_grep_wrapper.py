@@ -260,8 +260,8 @@ def global_on_user_filter(pckuserId,pck_start_time,pck_end_time):
     df_user = global_upc_df[global_upc_df.user_id == pckuserId]
     if df_user.empty:
         return False
-
-    start_time = df_user._c1[0]
+    print df_user
+    start_time = df_user._c1
 
     print start_time
 
