@@ -215,7 +215,7 @@ def read_aggregated_file(aggregated_log_file,on_user_filter=None,on_logcat_filte
             block_index += 1
             log_tpype_info = LOGS_TYPES.get(pck_log_type)
             if pck_log_type != 0:
-                print ("pck_log_type %d is NOT supported" % pck_log_type)
+                #print ("pck_log_type %d is NOT supported" % pck_log_type)
                 binaryFile.seek(pckPayloadSize, 1)
                 continue
 
