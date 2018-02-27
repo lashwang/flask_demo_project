@@ -8,6 +8,9 @@ import commands
 import os
 from io import BytesIO
 import zlib
+from logcat_grep_email import new_email_msg,send_email_report
+
+
 
 SEC_IN_ONE_HOUR = (24 * 3600)
 DEFAULT_QUERY_UPC_DAYS = 30
@@ -315,6 +318,10 @@ class MainWrapper(object):
         global global_upc_df
         query_user_first_upgrage_time()
         read_aggregated_file('test_data/aggregated0',global_on_user_filter,global_on_logcat_filter)
+
+    def test_email_send(self):
+        msg = new_email_msg("test","test")
+        send_email_report(msg)
 
     pass
 
