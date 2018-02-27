@@ -55,7 +55,7 @@ conn = hive.Connection(host="ap04.usa.7sys.net",
 
 global_upc_df = pd.DataFrame()
 
-KEY_VALUE = "Cleaning the verify apps datastore"
+SEARCH_KEY_STRING = "detect high cpu usage"
 
 
 def cal_time_period(query_days=DEFAULT_QUERY_UPC_DAYS):
@@ -280,8 +280,11 @@ def global_on_user_filter(pckuserId,pck_start_time,pck_end_time):
     pass
 
 def global_on_logcat_filter(pckuserId,payload_data):
-    if KEY_VALUE in payload_data:
+    if SEARCH_KEY_STRING in payload_data:
         print "find key in {}" + pckuserId
+        subject = "find {} for user {}".format(SEARCH_KEY_STRING, pckuserId)
+        msg = new_email_msg("test","test")
+        send_email_report(msg)
     pass
 
 
