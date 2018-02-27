@@ -52,6 +52,9 @@ conn = hive.Connection(host="ap04.usa.7sys.net",
 
 global_upc_df = pd.DataFrame()
 
+KEY_VALUE = "Cleaning the verify apps datastore"
+
+
 def cal_time_period(query_days=DEFAULT_QUERY_UPC_DAYS):
     utc_now = arrow.utcnow()
     data_entry_start = utc_now.shift(days=-query_days).timestamp / SEC_IN_ONE_HOUR * SEC_IN_ONE_HOUR * 1000
@@ -248,7 +251,7 @@ def read_block(binaryFile, pckPayloadSize,pckuserId,on_logcat_filter=None):
 
         try:
             payload_data = zlib.decompress(payload.getvalue(), zlib.MAX_WBITS | 16)
-            print "get logcat content size: {}".format(len(payload_data))
+            #print "get logcat content size: {}".format(len(payload_data))
             if on_logcat_filter:
                 on_logcat_filter(pckuserId,payload_data)
         except Exception, error:
@@ -263,16 +266,19 @@ def global_on_user_filter(pckuserId,pck_start_time,pck_end_time):
     df_user = global_upc_df[global_upc_df.user_id == pckuserId]
     if df_user.empty:
         return False
-    print df_user
-    start_time = df_user._c1
+    start_time = df_user.iloc[0]._c1/1000
 
-    print start_time
+    #print start_time
 
+    if pck_start_time >= start_time:
+        return True
 
-    return True
+    return False
     pass
 
 def global_on_logcat_filter(pckuserId,payload_data):
+    if KEY_VALUE in payload_data:
+        print "find key in {}" + pckuserId
     pass
 
 
