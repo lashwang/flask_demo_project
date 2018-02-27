@@ -9,7 +9,6 @@ import os
 from io import BytesIO
 import zlib
 
-
 SEC_IN_ONE_HOUR = (24 * 3600)
 DEFAULT_QUERY_UPC_DAYS = 30
 DEFAULT_VERSION_CODE = "8.0.0.506909"
@@ -51,6 +50,8 @@ conn = hive.Connection(host="ap04.usa.7sys.net",
                        configuration={'hive.resultset.use.unique.column.names':'false'})
 
 
+global_upc_df = pd.DataFrame()
+
 def cal_time_period(query_days=DEFAULT_QUERY_UPC_DAYS):
     utc_now = arrow.utcnow()
     data_entry_start = utc_now.shift(days=-query_days).timestamp / SEC_IN_ONE_HOUR * SEC_IN_ONE_HOUR * 1000
@@ -59,13 +60,15 @@ def cal_time_period(query_days=DEFAULT_QUERY_UPC_DAYS):
 
 
 def query_user_first_upgrage_time(version=DEFAULT_VERSION_CODE):
+    global global_upc_df
+
     if os.path.exists(DF_UPC_CACHE_FILE_NAME):
         try:
             mtime = os.path.getmtime(DF_UPC_CACHE_FILE_NAME)
             now = arrow.now().timestamp
             if (now-mtime) <= 24*3600:
-                df = pd.read_pickle(DF_UPC_CACHE_FILE_NAME)
-                return df
+                global_upc_df = pd.read_pickle(DF_UPC_CACHE_FILE_NAME)
+                return
         except Exception,e:
             print e
     try:
@@ -84,9 +87,8 @@ def query_user_first_upgrage_time(version=DEFAULT_VERSION_CODE):
     '''.format(version, data_entry_start, date_entry_end)
 
     print sql_for_upc
-    df = pd.read_sql(sql_for_upc, conn)
-    df.to_pickle(DF_UPC_CACHE_FILE_NAME)
-    return df
+    global_upc_df = pd.read_sql(sql_for_upc, conn)
+    global_upc_df.to_pickle(DF_UPC_CACHE_FILE_NAME)
 
 
 def read_log_file_list():
@@ -99,10 +101,10 @@ def read_log_file_list():
 
     return file_list
 
-def read_log_file_list_with_upc_time():
+def read_log_file_list_with_upc_time(upc_df):
     file_list_filter = []
-    df = query_user_first_upgrage_time()
-    min_time = df.iloc[:,1].min()/1000
+
+    min_time = upc_df.iloc[:,1].min()/1000
     print min_time
     file_list = read_log_file_list()
     for file in file_list:
@@ -251,9 +253,30 @@ def read_block(binaryFile, pckPayloadSize,pckuserId,on_logcat_filter=None):
         payload.close()
 
 
+def global_on_user_filter(pckuserId,pck_start_time,pck_end_time):
+    global global_upc_df
+    df_user = global_upc_df[global_upc_df.user_id == pckuserId]
+    print df_user
+    if df_user.empty:
+        return False
+
+    print df_user
+
+    return True
+    pass
+
+def global_on_logcat_filter(pckuserId,payload_data):
+    pass
+
+
 class MainWrapper(object):
     def run(self):
-        df = query_user_first_upgrage_time()
+        global global_upc_df
+
+        query_user_first_upgrage_time()
+        file_list = read_log_file_list_with_upc_time(global_upc_df)
+        for file in file_list:
+            read_aggregated_file(file,global_on_user_filter,global_on_logcat_filter)
         pass
 
 
@@ -263,25 +286,21 @@ class MainWrapper(object):
         pass
 
     def test_log_file_filter(self):
-        file_list = read_log_file_list_with_upc_time()
+        global global_upc_df
+        query_user_first_upgrage_time()
+        file_list = read_log_file_list_with_upc_time(global_upc_df)
         print file_list
 
     def test_upc_log_query(self):
-        df = query_user_first_upgrage_time()
-        print df
+        global global_upc_df
+        query_user_first_upgrage_time()
+        print global_upc_df
         pass
 
     def test_agg_file_parser(self):
-        def on_user_filter(pckuserId,pck_start_time,pck_end_time):
-            print "on_user_filter"
-            return True
-            pass
-
-        def on_logcat_filter(pckuserId,payload_data):
-            print "on_logcat_filter"
-            pass
-
-        read_aggregated_file('test_data/aggregated0',on_user_filter,on_logcat_filter)
+        global global_upc_df
+        query_user_first_upgrage_time()
+        read_aggregated_file('test_data/aggregated0',global_on_user_filter,global_on_logcat_filter)
 
     pass
 
