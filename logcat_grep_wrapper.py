@@ -55,7 +55,7 @@ conn = hive.Connection(host="ap04.usa.7sys.net",
 
 global_upc_df = pd.DataFrame()
 
-SEARCH_KEY_STRING = "detect high cpu usage"
+SEARCH_KEY_STRING = "ERR_QUIC_PROTOCOL_ERROR"
 
 
 def cal_time_period(query_days=DEFAULT_QUERY_UPC_DAYS):
@@ -282,8 +282,17 @@ def global_on_user_filter(pckuserId,pck_start_time,pck_end_time):
 def global_on_logcat_filter(pckuserId,payload_data):
     if SEARCH_KEY_STRING in payload_data:
         print "find key in {}" + pckuserId
+        key_before = 1000
+        key_after = 1000
+        index = payload_data.find(SEARCH_KEY_STRING)
+        start = index - key_before
+        if start < 0:start = 0
+        end = index + key_after
+        content = payload_data[start:end]
+
+
         subject = "find {} for user {}".format(SEARCH_KEY_STRING, pckuserId)
-        msg = new_email_msg("test","test")
+        msg = new_email_msg(subject,content)
         send_email_report(msg)
     pass
 
