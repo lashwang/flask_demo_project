@@ -256,7 +256,6 @@ def read_block(binaryFile, pckPayloadSize,pckuserId,on_logcat_filter=None):
 def global_on_user_filter(pckuserId,pck_start_time,pck_end_time):
     global global_upc_df
     df_user = global_upc_df[global_upc_df.user_id == pckuserId]
-    print df_user
     if df_user.empty:
         return False
 
